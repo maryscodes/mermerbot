@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ModQuery</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>ModQuery</h1>
+        <form id="messageForm">
+            <div class="form-row">
+                <div class="form-group half">
+                    <label for="alias">Alias:</label>
+                    <input type="text" id="alias" name="alias" placeholder="Enter Alias">
+                </div>
+                <div class="form-group half">
+                    <label for="reply_to">Reply To:</label>
+                    <input type="text" id="reply_to" name="reply_to" placeholder="Enter Username to Reply">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group half">
+                    <label for="video_id">Video ID:</label>
+                    <input type="text" id="video_id" name="video_id" placeholder="Optional Video ID">
+                </div>
+                <div class="form-group half">
+                    <label for="queue">Queue:</label>
+                    <input type="text" id="queue" name="queue" placeholder="Optional Queue">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="link">Link:</label>
+                <input type="text" id="link" name="link" placeholder="Optional Link">
+            </div>
+            <div class="form-group">
+                <label for="message">Message:</label>
+                <textarea id="message" name="message" placeholder="Enter Message"></textarea>
+            </div>
+            <div class="preview-box" id="previewBox" style="display: none;">
+                <h3>Preview:</h3>
+                <div id="previewContent"></div>
+            </div>
+            <div class="form-group">
+                <label for="image">Image:</label>
+                <div class="upload-zone" id="uploadZone">
+                    <input type="file" id="image" name="image" accept="image/*" style="display: none;">
+                    <div class="upload-text">
+                        Drop image here, click to upload, or paste from clipboard
+                    </div>
+                    <div id="imagePreview"></div>
+                </div>
+            </div>
+            <button type="submit" id="sendBtn">Send</button>
+        </form>
+        <!-- Initially hidden success message -->
+        <div id="successMessage" style="display: none; color: green;">
+            <p>Message sent successfully!</p>
+        </div>
+        <div class="trademark">MIRI™</div>
+        </div>
+
+    <script>
+        const uploadZone = document.getElementById('uploadZone');
+        const imageInput = document.getElementById('image');
+        const imagePreview = document.getElementById('imagePreview');
+
+        // Handle click on upload zone
+        uploadZone.addEventListener('click', () => {
+            imageInput.click();
+        });
+
+        // Handle drag and drop
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                handleImageFile(file);
+            }
+        });
+
+        // Handle paste from clipboard
+        document.addEventListener('paste', (e) => {
+            const items = e.clipboardData.items;
+            for (let item of items) {
+                if (item.type.startsWith('image/')) {
+                    const file = item.getAsFile();
+                    handleImageFile(file);
+                    break;
+                }
+            }
+        });
+
+        // Handle file input change
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleImageFile(file);
+            }
+        });
+
+        function removeImage() {
+            imageInput.value = '';
+            imagePreview.innerHTML = '';
+            const dataTransfer = new DataTransfer();
+            imageInput.files = dataTransfer.files;
+        }
+
+        function handleImageFile(file) {
+            // Create a new FileList object
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(file);
+            imageInput.files = dataTransfer.files;
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.innerHTML = `
+                    <div class="remove-image" onclick="removeImage()">×</div>
+                    <img src="${e.target.result}" alt="Preview">
+                `;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function updatePreview() {
+            const alias = document.getElementById('alias').value || 'Anonymous';
+            const replyTo = document.getElementById('reply_to').value;
+            const message = document.getElementById('message').value;
+            const videoId = document.getElementById('video_id').value;
+            const link = document.getElementById('link').value;
+            const queue = document.getElementById('queue').value;
+
+            let previewText = `${alias}${replyTo ? ` → @${replyTo}` : ''}: ${message}`;
+            if (link) previewText += `\nLink: ${link}`;
+            if (videoId) previewText += `\nVideo ID: ${videoId}`;
+            if (queue) previewText += `\nQueue: ${queue}`;
+
+            document.getElementById('previewContent').innerText = previewText;
+            document.getElementById('previewBox').style.display = message ? 'block' : 'none';
+        }
+
+        // Add input listeners for preview
+        ['alias', 'reply_to', 'message', 'video_id', 'link', 'queue'].forEach(id => {
+            document.getElementById(id).addEventListener('input', updatePreview);
+        });
+
+        document.getElementById('messageForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const alias = document.getElementById('alias').value;
+            const video_id = document.getElementById('video_id').value;
+            const link = document.getElementById('link').value;
+            const message = document.getElementById('message').value;
+
+            const formData = new FormData(e.target);
+
+            // Reset success message visibility before sending
+            document.getElementById('successMessage').style.display = 'none';
+
+            try {
+                const response = await fetch('/sendMessage', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    // Display success message
+                    document.getElementById('successMessage').style.display = 'block';
+                    // Reset form
+                    e.target.reset();
+                    // Clear image preview
+                    imagePreview.innerHTML = '';
+                    // Clear preview box
+                    document.getElementById('previewBox').style.display = 'none';
+                    document.getElementById('previewContent').innerText = '';
+                } else {
+                    alert('Failed to send message.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+    </script>
+</body>
+</html>
